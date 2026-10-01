@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Wallen Club Lambs</title>
+
+  <!-- iPhone / iOS home screen icon + full-screen app behavior -->
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <meta name="apple-mobile-web-app-title" content="Wallen Club Lambs" />
+  <meta name="theme-color" content="#0F1115" />
+
+  <!-- Favicon (desktop browser tab) -->
+  <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="./favicon-16.png" />
+
+  <!-- Android / general web app manifest -->
+  <link rel="manifest" href="./manifest.json" />
+
+  <!-- Styling is bundled locally (no CDN) so the app works with no internet connection -->
+  <link rel="stylesheet" href="./tailwind.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <style>
+    html, body, #root { margin: 0; padding: 0; min-height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <!-- Bundled locally (no CDN) so cross-device sync still works after the first
+       load even with no internet connection; see sync.js for how it's used. -->
+  <script src="./firebase-vendor.js"></script>
+  <script src="./sync.js"></script>
+  <script src="./bundle.js"></script>
+  <script>
+    // Registers the service worker so the app shell (HTML/CSS/JS/icons) is cached
+    // and keeps working with no internet connection after the first successful load.
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js").catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
