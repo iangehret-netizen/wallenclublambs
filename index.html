@@ -47,7 +47,7 @@
       var key = today.getFullYear() + "-" + (today.getMonth() + 1) + "-" + today.getDate();
       var seen = false;
       try { seen = localStorage.getItem("wcl:cover:day") === key; } catch (e) {}
-      if (seen) { el.parentNode.removeChild(el); return; }
+      /* cover shows every time the app opens */
       el.style.display = "flex";
       document.getElementById("gsc-cover-open").addEventListener("click", function () {
         try { localStorage.setItem("wcl:cover:day", key); } catch (e) {}

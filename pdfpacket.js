@@ -251,6 +251,18 @@
         fs: 7, hfs: 7.5, minRh: 22, headerH: 15, padBlank: true
       });
     });
+    var exNames = [];
+    (d.exhibitors || []).forEach(function (e) { if (e && e.name && exNames.indexOf(e.name) < 0) exNames.push(e.name); });
+    var exRows = [];
+    exNames.forEach(function (nm) {
+      var low = nm.trim().toLowerCase(), match = function (t) { return String(t || "").split(/\s*[\/,&]\s*|\s+and\s+/i).some(function (p) { return p.trim().toLowerCase() === low; }); };
+      var lambIds = sheep.filter(function (s) { return match(s.showman); }).map(function (s) { return s.id; });
+      (d.results || []).filter(function (r) { return match(r.exhibitor) || lambIds.indexOf(r.sheepId) >= 0 && !r.exhibitor; }).forEach(function (r) {
+        var sh = (d.shows || []).filter(function (s) { return s.name === r.showName; })[0];
+        exRows.push([nm, sheepName(sheep, r.sheepId, r.sheepName), r.showName, sh ? fmtFull(sh.date) : "", r.showedAs, r.placing]);
+      });
+    });
+    if (exRows.length) out.push({ type: "table", name: "Exhibitor Placings", title: "Placings by Exhibitor", widths: [80, 70, 130, 55, 90, 110], headers: ["Exhibitor", "Lamb", "Show", "Date", "Showed As", "Placing"], rows: exRows, fs: 6.5, hfs: 7, minRh: 20, headerH: 15, boldCols: [0] });
     // Excel-only extras
     var feed = [];
     sheep.forEach(function (s) {
@@ -285,7 +297,7 @@
       rows: roster, fs: 6, hfs: 6, minRh: 22, headerH: 13, boldCols: [0]
     });
     var br = (d.breeding || []).map(function (b) {
-      return [b.ewe, b.eweTag, fmtFull(b.breedingDate), b.via, b.buck, b.breedingDate ? addDays(b.breedingDate, 147) : "",
+      return [b.ewe, b.eweTag, fmtFull(b.breedingDate) + (b.rebreedDate ? " / re-bred " + fmtFull(b.rebreedDate) : ""), b.via, b.rebreedDate && b.rebreedBuck ? b.buck + " / " + b.rebreedBuck : b.buck, (b.rebreedDate || b.breedingDate) ? addDays(b.rebreedDate || b.breedingDate, 147) : "",
         b.ultrasound, fmtFull(b.actualLambing), b.carriedToTerm, b.bornAlive, b.males, b.females];
     });
     if (br.length) out.push({
@@ -313,9 +325,14 @@
       headers: ["Show", "Dam", "Lamb", "Showed As", "Placing"],
       rows: rs, fs: 7, hfs: 7.5, minRh: 22, headerH: 15
     });
+    var hh = [], allA = (d.herd || []).concat(d.sold || []);
+    Object.keys(d.herdHealth || {}).forEach(function (id) { var a = allA.filter(function (z) { return z.id === id; })[0]; ((d.herdHealth || {})[id] || []).forEach(function (rt) {
+      hh.push([a ? a.name : "(removed animal)", fmtFull(rt.date), rt.type, rt.product, ((rt.doseGiven || "") + " " + (rt.doseUnit || "")).trim(), rt.withdrawalDays || "", rt.withdrawalDays ? addDays(rt.date, +rt.withdrawalDays) : "", rt.notes]); }); });
+    hh.sort(function (x, y) { return dateKey(y[1]) - dateKey(x[1]); });
+    if (hh.length) out.push({ type: "table", name: "Herd Health", title: "Herd Health", widths: [70, 50, 55, 90, 50, 45, 55, 125], headers: ["Animal", "Date", "Type", "Product", "Dose", "Withdrawal", "Clears", "Notes"], rows: hh, fs: 6.5, hfs: 6.5, minRh: 20, headerH: 15, boldCols: [0] });
     var so = (d.sold || []).map(function (s) { return [s.name, s.breed, s.sire, s.dam, fmtFull(s.soldDate)]; });
     if (so.length) out.push({
-      type: "table", name: "Sold Ewes", title: "Sold Ewes",
+      type: "table", name: "Sold or Removed", title: "Sold / Removed",
       widths: [120, 100, 100, 120, 100],
       headers: ["Name", "Breed", "Sire", "Dam", "Sold Date"],
       rows: so, fs: 7, hfs: 7.5, minRh: 22, headerH: 15, boldCols: [0]
