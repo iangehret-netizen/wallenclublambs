@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "wallen-app-";
-const CACHE_NAME = CACHE_PREFIX + "v15";
+const CACHE_NAME = CACHE_PREFIX + "v18";
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",
@@ -25,7 +25,8 @@ const ASSETS_TO_CACHE = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE)).catch(() => {})
+    // cache:"reload" skips the browser's own HTTP cache so a new upload is really fetched
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE.map((u) => new Request(u, { cache: "reload" })))).catch(() => {})
   );
   self.skipWaiting();
 });
@@ -39,26 +40,22 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Cache-first for our own app files, with a background refresh when online
-// so updates still get picked up next time. Falls back to cache whenever
-// the network request fails (i.e. no internet).
+// v18: network first for our own files (checks GitHub for a newer copy each time, so an upload
+// shows up without reinstalling); falls back to the saved copy when there's no signal or the
+// network takes more than 4 seconds (e.g. weak signal in the barn).
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return; // don't intercept fonts/CDN requests
-
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const networkFetch = fetch(event.request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return response;
-        })
-        .catch(() => cached);
-      return cached || networkFetch;
-    })
-  );
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    const cached = await cache.match(event.request, { ignoreSearch: true });
+    const net = fetch(event.request, { cache: "no-cache" }).then((response) => {
+      if (response && response.status === 200) cache.put(event.request, response.clone());
+      return response;
+    });
+    if (!cached) return net.catch(() => caches.match("./index.html"));
+    const timeout = new Promise((res) => setTimeout(() => res(null), 4000));
+    try { const r = await Promise.race([net, timeout]); return r || cached; } catch (e) { return cached; }
+  })());
 });

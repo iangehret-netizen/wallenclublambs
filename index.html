@@ -106,8 +106,35 @@
     // Registers the service worker so the app shell (HTML/CSS/JS/icons) is cached
     // and keeps working with no internet connection after the first successful load.
     if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./sw.js").catch(() => {});
+      // v18: new uploads load without deleting the app. The phone checks for a new version every
+      // time the app is opened or brought back to the front; when one is ready a button appears.
+      var wclHadController = !!navigator.serviceWorker.controller;
+      var wclShowUpdate = function () {
+        if (document.getElementById("wcl-update-banner")) return;
+        // still on the Open screen: nothing entered yet, so just load the new version
+        var cv = document.getElementById("gsc-cover");
+        if (cv && cv.style.display !== "none" && cv.className !== "gsc-hide") { location.reload(); return; }
+        var b = document.createElement("button");
+        b.id = "wcl-update-banner"; b.type = "button";
+        b.textContent = "New version ready \u2014 tap to reload";
+        b.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));z-index:100001;" +
+          "font:600 14px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#FFFFFF;" +
+          "background:linear-gradient(180deg,#3E64C8,#1C3F99);border:0;border-radius:999px;padding:12px 22px;" +
+          "box-shadow:0 6px 22px rgba(0,0,0,.45);cursor:pointer;white-space:nowrap;";
+        b.addEventListener("click", function () { location.reload(); });
+        document.body.appendChild(b);
+      };
+      navigator.serviceWorker.addEventListener("controllerchange", function () {
+        if (wclHadController) wclShowUpdate();
+        wclHadController = true;
+      });
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" }).then(function (reg) {
+          try { reg.update(); } catch (e) {}
+          document.addEventListener("visibilitychange", function () {
+            if (document.visibilityState === "visible") { try { reg.update(); } catch (e) {} }
+          });
+        }).catch(function () {});
       });
     }
   </script>

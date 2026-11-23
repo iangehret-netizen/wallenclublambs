@@ -739,13 +739,17 @@ function ofBabies(d){var out=[];
   out.forEach(function(b){b.damKey=ofDamKey(d,b.dam);var t=gxNorm(b.tag);b.lk=t&&b.year?b.year+"|"+t:b.uid});return out}
 function ofRosterUid(d,r){if(r.fromLot){var sp=r.fromLot.split(":"),s=(d.sales||[]).filter(function(x){return x.id===sp[0]})[0];if(s&&(s.lots||[]).some(function(l){return l.id===sp[1]}))return"s:"+r.fromLot}
   var t=gxNorm(r.farmTag),st=gxNorm(r.scrapieTag),hit=null;(d.sales||[]).forEach(function(s){(s.lots||[]).forEach(function(l){var y=gxYear(s.date)||gxYear(l.dob)||"",lt=gxNorm(l.tag);if(!hit&&lt&&(r.year||"")===y&&(lt===t||lt===st))hit="s:"+s.id+":"+l.id})});return hit||"r:"+r.id}
-function ofSibBadges(sib,goEwe){return sib?gxE("div",{key:"sib",className:"flex flex-wrap gap-1 mt-1"},sib.litter?gxE("button",{type:"button",onClick:function(){goEwe&&goEwe(sib.damKey)},className:"text-[11px] px-2 py-0.5",style:{background:Qe,color:"#FFFFFF",borderRadius:"999px",fontWeight:700}},ofLitterName(sib.litter)):null,sib.full?gxE("button",{type:"button",onClick:function(){goEwe&&goEwe(sib.damKey)},className:"text-[11px] px-2 py-0.5",style:{background:Ge,color:He,borderRadius:"999px",fontWeight:600}},"Full Sib Record Available \u203a"):null,sib.half?gxE("button",{type:"button",onClick:function(){goEwe&&goEwe(sib.damKey)},className:"text-[11px] px-2 py-0.5",style:{border:"1px solid "+Qe,color:Qe,borderRadius:"999px",fontWeight:600}},"Half Sib Record Available \u203a"):null):null}
-function ofSibs(all,uid){var me=all.filter(function(b){return b.uid===uid})[0];if(!me||!me.damKey)return null;var full={},half={},lit={},s=gxNorm(me.sire),y=String(me.year||"");
-  all.forEach(function(b){if(b.uid===uid||b.lk===me.lk||b.damKey!==me.damKey)return;var by=String(b.year||""),same=s&&gxNorm(b.sire)===s;
-    if(y&&by===y){if(same)lit[b.lk]=1;return}
-    if(y&&by&&ofCmp(by,y)<0){if(same)full[b.lk]=1;else half[b.lk]=1}});
-  var F=Object.keys(full).length,H=Object.keys(half).length,L=Object.keys(lit).length;
-  return F||H||L?{full:F,half:H,litter:L?L+1:0,damKey:me.damKey}:null}
+function ofSibBadges(sib,goEwe){return sib?gxE("div",{key:"sib",className:"flex flex-wrap gap-1 mt-1"},sib.litter?gxE("button",{type:"button",onClick:function(){wlSibOpen(sib)},className:"text-[11px] px-2 py-0.5",style:{background:Qe,color:"#FFFFFF",borderRadius:"999px",fontWeight:700}},ofLitterName(sib.litter)):null,sib.full?gxE("button",{type:"button",onClick:function(){wlSibOpen(sib)},className:"text-[11px] px-2 py-0.5",style:{background:Ge,color:He,borderRadius:"999px",fontWeight:600}},"Full Sib Record Available \u203a"):null,sib.half?gxE("button",{type:"button",onClick:function(){wlSibOpen(sib)},className:"text-[11px] px-2 py-0.5",style:{border:"1px solid "+Qe,color:Qe,borderRadius:"999px",fontWeight:600}},"Half Sib Record Available \u203a"):null):null}
+/* v16: sire names match even when typed a little differently ("Ocean eye" / "Ocean Eyes", "Saltwater Cowboy (Jennings's buck x ...)") or by a Wallen buck's name, tag or nickname */
+function wlSireKey(s){return String(s==null?"":s).toLowerCase().replace(/\([^)]*\)?/g," ").replace(/[^a-z0-9]+/g,"")}
+function wlBuckKeys(s){var k=wlSireKey(s);if(!k)return[];var out=[k];(typeof wlBucks==="function"?wlBucks():[]).forEach(function(b){var ks=[b.name,b.tag,b.nickname].map(wlSireKey).filter(Boolean);if(ks.indexOf(k)>=0)ks.forEach(function(x){if(out.indexOf(x)<0)out.push(x)})});return out}
+function wlSameSire(a,b){var A=wlBuckKeys(a),B=wlBuckKeys(b);if(!A.length||!B.length)return!1;return A.some(function(x){return B.some(function(y){return x===y||(Math.min(x.length,y.length)>=5&&(x.indexOf(y)===0||y.indexOf(x)===0))})})}
+function ofSibs(all,uid){var me=all.filter(function(b){return b.uid===uid})[0];if(!me||!me.damKey)return null;var full={},half={},lit={},s=me.sire,y=String(me.year||"");
+  all.forEach(function(b){if(b.uid===uid||b.lk===me.lk||b.damKey!==me.damKey)return;var by=String(b.year||""),same=wlSameSire(s,b.sire);
+    if(y&&by===y){if(same)lit[b.lk]=lit[b.lk]||b;return}
+    if(y&&by&&ofCmp(by,y)<0){if(same)full[b.lk]=full[b.lk]||b;else half[b.lk]=half[b.lk]||b}});
+  var V=function(o){return Object.keys(o).map(function(k){return o[k]}).sort(function(a,c){return ofCmp(c.year,a.year)||ofCmp(a.tag,c.tag)})},F=Object.keys(full).length,H=Object.keys(half).length,L=Object.keys(lit).length;
+  return F||H||L?{full:F,half:H,litter:L?L+1:0,damKey:me.damKey,me:me,fullL:V(full),halfL:V(half),litL:V(lit)}:null}
 function ofLitterName(n){return{2:"Twin",3:"Triplet",4:"Quad",5:"Quint"}[n]||(n+" in litter")}
 function ofLambLabel(b){return(b.tag?"Tag "+b.tag:"No tag")+(b.sex?" · "+b.sex:"")+" · "+b.from}
 function ofSires(d){var s=[];ofBabies(d).forEach(function(b){if(b.sire&&s.indexOf(b.sire)<0)s.push(b.sire)});(d.ewes||[]).forEach(function(e){if(e.sire&&s.indexOf(e.sire)<0)s.push(e.sire)});return s.sort(ofCmp)}
@@ -997,7 +1001,7 @@ var gxWl={herd:[],sold:[],lambing:[],addEwes:null,goTab:null};
 /* Wallen's own ewes (Herd Roster + sold ewes) stand in for the farm's ewe list */
 function wlEwes(){var out=[];(gxWl.herd||[]).map(function(s){return[s,!1]}).concat((gxWl.sold||[]).map(function(s){return[s,!0]})).forEach(function(z){var s=z[0];
   if(!s||!String(s.name||"").trim())return;if(s.sex&&s.sex!=="Ewe")return;
-  out.push({id:s.id,tag:String(s.name).trim(),_nm:s.name,name:"",breed:s.breed||"",sire:s.sire||"",dob:s.birthdate||"",_alt:[s.farmTag,s.lEar,s.rEar].filter(Boolean),_herd:1,_sold:z[1]})});return out}
+  out.push({id:s.id,tag:String(s.name).trim(),_nm:s.name,name:"",breed:s.breed||"",sire:s.sire||"",dob:s.birthdate||"",_alt:[s.farmTag,s.nickname,s.lEar,s.rEar].filter(Boolean),_herd:1,_sold:z[1]})});return out}
 function wlData(){var r=gxOfData(WL_ID)||{};return Object.assign(gxOfBlank(),r,{ewes:wlEwes(),lambing:gxWl.lambing||[]})}
 function wlSave(fn){gxOfSave(WL_ID,function(x){x.ewes=wlEwes();x.lambing=gxWl.lambing||[];var r=fn(x)||x;
   var add=(r.ewes||[]).filter(function(e){return!e._herd});delete r.ewes;delete r.lambing;delete r.showmen;delete r.logo;delete r.results;
@@ -1242,7 +1246,7 @@ var WL_SEED={"herd": {"herdSheep": [{"name": "18123", "farmTag": "18123", "nickn
 /* ---- one book: the breed section buttons are gone ---- */
 function wlSecs(){return[{id:"main",name:"Herd"}]}
 function wlCat(part){return part===1?RSG_SIRES:CD_SIRES.concat(SD_SIRES)}
-function WlSecBar(){return gxE(WlExportPicker)}
+function WlSecBar(){return gxE(gxF,null,gxE(WlExportPicker),gxE(WlSibPop))}
 GXK.bucks="sheepwrld:bucks";
 /* ---- breed sub-tabs (All is the default) ---- */
 var WL_BALIAS={bfx:"bfx",blackface:"bfx","black face":"bfx",blackfaces:"bfx","black faced":"bfx",southdown:"southdown",southdowns:"southdown"};
@@ -1334,6 +1338,17 @@ function WlBackupCard(){var has=!1;try{has=!!localStorage.getItem("wcl:__backup:
   return gxSection("Backup From Before the 11/23 Reload",gxE("div",null,gxNote("This phone saved everything that was in the app right before the records were replaced with the 11/23 spreadsheet. Download it to keep a copy."),
     gxBtn("Download Old Records",function(){gxDownload("Wallen records before 11-23 reload.json",localStorage.getItem("wcl:__backup:before-2026-11-23-reload"),"application/json")})))}
 if(!wlResetDone()){if(window.__gscSyncFirstDone)setTimeout(wlDoReset,0);else window.addEventListener("gsc-sync-first",function(){setTimeout(wlDoReset,0)})}
+/* ---- v17: tapping a sib / Twin label lists the actual lambs from the Lamb Roster ---- */
+function wlSibOpen(sib){gxS.vals["gx:sibpop"]=sib;gxNotify("gx:sibpop")}
+function WlSibPop(){var sib=useGx("gx:sibpop",null);if(!sib)return null;var close=function(){gxS.vals["gx:sibpop"]=null;gxNotify("gx:sibpop")},me=sib.me||{};
+  function lamb(b,i){var r=b.ref||{};return ofCard(b.uid+i,[gxE("div",{key:"a",className:"text-sm",style:{color:Ge,fontWeight:700}},(b.tag?"Tag "+b.tag:"No tag")+(r.nickname?" “"+r.nickname+"”":"")+(b.sex?" · "+b.sex:"")),
+    gxE("div",{key:"b",className:"text-[11px] text-neutral-500"},[b.year?b.year:"",b.sire?"Sire "+b.sire:"",b.dam?"Dam "+b.dam:"",b.src==="sale"?b.from:"Lamb Roster"].filter(Boolean).join(" · ")),
+    r.notes?gxE("div",{key:"c",className:"text-[11px] mt-0.5",style:{color:"#666",whiteSpace:"pre-wrap"}},String(r.notes).slice(0,160)):null],{padding:"8px 12px"})}
+  function grp(t,l){return l&&l.length?gxE("div",{className:"mb-3"},gxE("div",{className:"gx-sub text-[11px] uppercase tracking-wider mb-1",style:{color:Qe,fontWeight:700}},t+" ("+l.length+")"),gxE("div",{className:"space-y-1.5"},l.map(lamb))):null}
+  return gxE(GxModal,{onClose:close,width:560},gxE("div",{className:"flex items-center justify-between mb-1"},gxE(mn,null,"Sibs of "+(me.tag?"Tag "+me.tag:"this lamb")),gxBtn("Close",close)),
+    gxE("div",{className:"text-xs text-neutral-500 mb-3"},[me.year,me.sire?"Sire "+me.sire:"",me.dam?"Dam "+me.dam:""].filter(Boolean).join(" · ")+" — from the Lamb Roster"),
+    grp("Same year ("+ofLitterName((sib.litL||[]).length+1)+")",sib.litL),grp("Full sibs, earlier years",sib.fullL),grp("Half sibs, earlier years (same dam, other sire)",sib.halfL),
+    gxE("div",{className:"flex justify-end mt-2"},gxBtn("Open dam in Lambing Records",function(){close();wlGoEwe(sib.damKey)})))}
 
 /* ---------- Breeding helpers ---------- */
 function gxDueInfo(b){if(b.actualLambing)return null;var d=gxExpLamb(b);if(!d)return null;var n=gxDays(Zl(),d);return{date:d,days:n,soon:n>=0&&n<=14,over:n<0}}
