@@ -289,18 +289,19 @@
     if (d.multi) {
       var all = [];
       d.multi.forEach(function (m) {
-        herdSections(m.data).forEach(function (s) { if (String(s.name).indexOf(m.name + " ") !== 0) s.name = m.name + " " + s.name; s.title = m.name + " - " + (s.title || s.name); all.push(s); });
+        var TAB = function (n) { return /^Herd Roster/.test(n) ? "roster" : /^Breeding/.test(n) ? "breeding" : /^Lambing/.test(n) ? "lambing" : /^Results/.test(n) ? "results" : /^Herd Health/.test(n) ? "hhealth" : /^Sold/.test(n) ? "soldewes" : /^Lamb Roster/.test(n) ? "lambroster" : /^Sale /.test(n) ? "sales" : /^Notes/.test(n) ? "notes" : ""; };
+        herdSections(m.data).filter(function (s) { return !m.tabs || m.tabs.indexOf(TAB(s.name)) >= 0; }).forEach(function (s) { if (String(s.name).indexOf(m.name + " ") !== 0) s.name = m.name + " " + s.name; s.title = m.name + " - " + (s.title || s.name); all.push(s); });
       });
       return all;
     }
     var out = [], lambs = d.lambing || [];
     var roster = (d.herd || []).map(function (s) {
-      return [s.name, s.sex, s.lEar, s.rEar, fmtFull(s.birthdate), s.breed, s.sire, s.dam, s.breeder, s.born, s.reared, s.notes];
+      return [s.name, s.farmTag, s.nickname, s.sex, s.lEar, s.rEar, fmtFull(s.birthdate), s.breed, s.sire, s.dam, s.breeder, s.born, s.reared, s.notes];
     });
     out.push({
       type: "table", name: "Herd Roster", title: "Herd Roster",
-      widths: [52, 28, 36, 36, 46, 44, 52, 52, 40, 26, 30, 98],
-      headers: ["Name", "Sex", "L Ear", "R Ear", "Birthdate", "Breed", "Sire", "Dam", "Breeder", "Born", "Reared", "Notes"],
+      widths: [46, 40, 40, 24, 30, 30, 42, 40, 46, 46, 34, 22, 26, 74],
+      headers: ["Name", "Farm Tag", "Nickname", "Sex", "L Ear", "R Ear", "Birthdate", "Breed", "Sire", "Dam", "Breeder", "Born", "Reared", "Notes"],
       rows: roster, fs: 6, hfs: 6, minRh: 22, headerH: 13, boldCols: [0]
     });
     var br = (d.breeding || []).map(function (b) {
