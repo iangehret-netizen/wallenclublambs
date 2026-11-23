@@ -31,6 +31,24 @@
     #gsc-cover button { font-family: 'Inter', -apple-system, system-ui, sans-serif; font-size: 16px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #FFFFFF; background: linear-gradient(180deg, #3E64C8, #1C3F99); border: 0; border-radius: 999px; padding: 15px 56px; min-height: 48px; cursor: pointer; box-shadow: 0 6px 22px rgba(0,0,0,.45); }
     #gsc-cover button:active { transform: scale(.97); }
 
+    /* v11: bolder tab buttons, bold card headings, bigger gold subheadings (from Gehret v54) */
+    .gx-tabs > button { font-weight: 600 !important; }
+    .gx-tabs > button[style*="font-weight: 600"] { font-weight: 800 !important; }
+    .gx-h { font-size: 16px !important; text-transform: none !important; letter-spacing: 0 !important; color: #0F1115 !important; font-weight: 700 !important; }
+    .gx-sub { font-size: 13.5px !important; font-weight: 800 !important; letter-spacing: .12em !important; }
+    /* v11: tighter phone layout, tabs in one swipeable row (computer/tablet unchanged, from Gehret v53) */
+    @media (max-width: 767px) {
+      .gx-hdr { padding-top: 12px !important; padding-bottom: 12px !important; }
+      .gx-hdr > .flex.items-start { gap: 10px !important; }
+      .gx-body { padding-top: 12px !important; padding-left: 10px !important; padding-right: 10px !important; }
+      .gx-tabs { flex-wrap: nowrap !important; overflow-x: auto; margin: 0 -10px 12px !important; padding: 0 10px 2px; gap: 6px !important; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+      .gx-tabs::-webkit-scrollbar { display: none; }
+      .gx-tabs > button { flex-shrink: 0; white-space: nowrap; padding-left: 12px !important; padding-right: 12px !important; min-height: 38px !important; padding-top: 6px !important; padding-bottom: 6px !important; }
+      .gx-card { padding: 12px !important; }
+      .gx-h { margin-bottom: 10px !important; }
+      .gx-body .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 12px !important; }
+      .gx-body .pb-16 { padding-bottom: 24px !important; }
+    }
   </style>
 </head>
 <body>

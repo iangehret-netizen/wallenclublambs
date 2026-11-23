@@ -307,12 +307,12 @@
       rows: br, fs: 6, hfs: 6, minRh: 22, headerH: 15, boldCols: [0]
     });
     var lb = lambs.map(function (l) {
-      return [l.tag, l.sex, l.sire, l.dam, fmtFull(l.dob), l.soldTo, l.price, l.showedBy, l.notes];
+      return [l.tag, l.sex, l.breed, l.sire, l.dam, fmtFull(l.dob), l.soldTo, l.price, l.showedBy, l.notes];
     });
     if (lb.length) out.push({
       type: "table", name: "Lambing", title: "Lambing",
-      widths: [48, 28, 64, 64, 46, 58, 36, 56, 140],
-      headers: ["Tag", "Sex", "Sire", "Dam", "DOB", "Sold To", "Price", "Showed By", "Notes"],
+      widths: [46, 26, 44, 60, 60, 44, 54, 34, 52, 120],
+      headers: ["Tag", "Sex", "Breed", "Sire", "Dam", "DOB", "Sold To", "Price", "Showed By", "Notes"],
       rows: lb, fs: 6.5, hfs: 6.5, minRh: 22, headerH: 15, boldCols: [0]
     });
     var rs = (d.results || []).map(function (r) {
@@ -337,6 +337,7 @@
       headers: ["Name", "Breed", "Sire", "Dam", "Sold Date"],
       rows: so, fs: 7, hfs: 7.5, minRh: 22, headerH: 15, boldCols: [0]
     });
+    (d.extra || []).forEach(function (s) { if (s && s.rows && s.rows.length) out.push(s); });
     return out;
   }
 

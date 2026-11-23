@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "wallen-app-";
-const CACHE_NAME = CACHE_PREFIX + "v10";
+const CACHE_NAME = CACHE_PREFIX + "v11";
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",
@@ -8,6 +8,9 @@ const ASSETS_TO_CACHE = [
   "./sync.js",
   "./jspdf.umd.min.js",
   "./pdfpacket.js",
+  "./salepdf.js",
+  "./pdf.min.js",
+  "./pdf.worker.min.js",
   "./logo-cover.png",
   "./logo-pdf.png",
   "./tailwind.css",
