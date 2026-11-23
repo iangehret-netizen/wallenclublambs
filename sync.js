@@ -347,6 +347,8 @@
         if (!firstSnapshotProcessed) {
           firstSnapshotProcessed = true;
           backfillMissingLocalKeys(remoteKeysSeen);
+          window.__gscSyncFirstDone = true; // v15: first full sync done
+          try { window.dispatchEvent(new Event("gsc-sync-first")); } catch (e) {}
         }
 
         if (sawChange) applyRemote(changedKeys);
