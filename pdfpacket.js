@@ -286,6 +286,13 @@
   }
 
   function herdSections(d) {
+    if (d.multi) {
+      var all = [];
+      d.multi.forEach(function (m) {
+        herdSections(m.data).forEach(function (s) { if (String(s.name).indexOf(m.name + " ") !== 0) s.name = m.name + " " + s.name; s.title = m.name + " - " + (s.title || s.name); all.push(s); });
+      });
+      return all;
+    }
     var out = [], lambs = d.lambing || [];
     var roster = (d.herd || []).map(function (s) {
       return [s.name, s.sex, s.lEar, s.rEar, fmtFull(s.birthdate), s.breed, s.sire, s.dam, s.breeder, s.born, s.reared, s.notes];

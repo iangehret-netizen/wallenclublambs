@@ -179,6 +179,7 @@
   function nameForKey(k) {
     if (k === "sheepwrld:herd" || k === "sheepwrld:herdhealth") return "Herd View";
     if (/^sheepwrld:of:/.test(k)) return "Lamb Roster & Sales";
+    if (/^sheepwrld:(herd|herdhealth)@/.test(k)) return "Herd View";
     return null;
   }
   var lastTyped = 0, pendingRec = {};
@@ -193,20 +194,28 @@
     for (var i = 0; i < btns.length; i++) { var t = (btns[i].textContent || "").trim(); if ((t === "Cancel" || /^Save( |$)/.test(t)) && btns[i].offsetParent) return true; }
     return false;
   }
-  function isRecordKey(k) { return /^sheepwrld:(herd$|of:)/.test(k); }
+  // v12: each breed section keeps its records under its own key (e.g. sheepwrld:herd@s1); Herd is fed from all of them
+  function logical(k) { return window.gxSecLogical ? window.gxSecLogical(k) : k; }
+  function isRecordKey(k) { return window.gxSecIsRecord ? window.gxSecIsRecord(k) : /^sheepwrld:(herd$|of:)/.test(k); }
   function extSet(k) {
     if (!window.gxExtSet) return;
-    try { var v = localStorage.getItem(LOCAL_PREFIX + k); window.gxExtSet(k, v == null ? undefined : JSON.parse(v)); } catch (e) {}
+    var lk = logical(k); if (lk == null) return;
+    try { var v = localStorage.getItem(LOCAL_PREFIX + k); window.gxExtSet(lk, v == null ? undefined : JSON.parse(v)); } catch (e) {}
   }
   // put changed records on screen without a page reload
   function liveApply(keys) {
-    var herd = false;
-    keys.forEach(function (k) { if (/^sheepwrld:of:/.test(k)) extSet(k); else if (k === "sheepwrld:herd") herd = true; });
+    var herd = false, onHerd = window.gxSecOnHerd && window.gxSecOnHerd();
+    keys.forEach(function (k) {
+      var lk = logical(k);
+      if (lk === "sheepwrld:of:wallen") extSet(k);
+      else if (lk === "sheepwrld:herd" || lk === "sheepwrld:herdhealth") herd = true;
+      if (onHerd && lk == null) herd = true; // a breed section changed: refill Herd
+    });
     try { if (herd) window.dispatchEvent(new Event("gsc-reload-herd")); } catch (e) {}
   }
   function applyRemote(keys) {
     var rec = [];
-    keys.forEach(function (k) { extSet(k); if (isRecordKey(k)) rec.push(k); }); // everything else updates quietly
+    keys.forEach(function (k) { extSet(k); if (isRecordKey(k) && (logical(k) != null || (window.gxSecOnHerd && window.gxSecOnHerd()))) rec.push(k); }); // everything else updates quietly
     if (!rec.length) return;
     if (quietReloadOk()) { try { sessionStorage.setItem("wcl:autoReload", String(Date.now())); } catch (e) {} window.location.reload(); return; }
     if (isEditing()) { rec.forEach(function (k) { pendingRec[k] = 1; var nm = nameForKey(k); if (nm) changedNames[nm] = 1; }); showUpdateBanner(); return; }
