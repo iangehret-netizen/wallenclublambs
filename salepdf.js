@@ -1,4 +1,5 @@
-// Wallen Club Lambs — sale catalog PDF reader (Lamb Roster, Sales, Herd Roster ewe import)
+// Wallen Club Lambs — sale catalog reader for PDFs and photos/screenshots (Lamb Roster, Sales, Herd Roster ewe import)
+// window.gscReadSaleFiles(files, onProgress): PDFs and pictures together; also returns results: [{lot, tag, price}] (sold prices)
 //
 // window.gscReadSalePdf(file, onProgress) -> Promise<{ lots, extraKeys, source, pages }>
 //   lots:      [{ lot, tag, sex, breed, dob, sire, damTag, damSire, comments, extra: { "Key": "value" } }]
@@ -63,8 +64,12 @@
     if (/^(r|ram|ram lamb|buck|m|male)\b/.test(s)) return "Ram";
     return String(v || "").trim();
   }
+  var MON = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12 };
   function normDate(v) {
     var s = String(v || "").trim(), m;
+    // no year given: "11/06", "11-6", "Nov 6" -> 0000-11-06 (the app fills in the year)
+    if ((m = /^(\d{1,2})[\/\-.](\d{1,2})$/.exec(s))) return "0000-" + ("0" + m[1]).slice(-2) + "-" + ("0" + m[2]).slice(-2);
+    if ((m = /^([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?$/.exec(s))) { var mk = m[1].toLowerCase(), mo = MON[mk.slice(0, 4)] || MON[mk.slice(0, 3)]; if (mo) return "0000-" + ("0" + mo).slice(-2) + "-" + ("0" + m[2]).slice(-2); }
     if ((m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s))) return m[1] + "-" + ("0" + m[2]).slice(-2) + "-" + ("0" + m[3]).slice(-2);
     if ((m = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/.exec(s))) {
       var y = +m[3]; if (y < 100) y += 2000;
@@ -137,6 +142,78 @@
       }
     } finally { try { await worker.terminate(); } catch (e) {} }
     return pages;
+  }
+
+  // ---------- photos / screenshots ----------
+  function imgOf(file) {
+    return new Promise(function (res, rej) {
+      var u = URL.createObjectURL(file), im = new Image();
+      im.onload = function () { res(im); }; im.onerror = function () { URL.revokeObjectURL(u); rej(new Error("That picture couldn't be opened (" + (file.name || "photo") + ").")); };
+      im.src = u;
+    });
+  }
+  async function readImages(files, prog) {
+    await loadTess();
+    var worker = await window.Tesseract.createWorker("eng", 1, { workerPath: "./tess-worker.min.js", corePath: "./", langPath: "./", gzip: true });
+    var pages = [];
+    try {
+      for (var i = 0; i < files.length; i++) {
+        prog && prog("Reading picture " + (i + 1) + " of " + files.length + "… (a few seconds each)");
+        var im = await imgOf(files[i]), sc = Math.min(3, Math.max(1, 1600 / (im.naturalWidth || 1600)));
+        var cv = document.createElement("canvas"); cv.width = Math.round(im.naturalWidth * sc); cv.height = Math.round(im.naturalHeight * sc);
+        var cx = cv.getContext("2d"); cx.fillStyle = "#FFFFFF"; cx.fillRect(0, 0, cv.width, cv.height); cx.drawImage(im, 0, 0, cv.width, cv.height);
+        var r = await worker.recognize(cv), items = [];
+        ((r.data && r.data.words) || []).forEach(function (w) {
+          if ((w.confidence || 0) < 40 || !/[A-Za-z0-9$]/.test(w.text || "")) return;
+          var b = w.bbox;
+          items.push({ x: b.x0 / sc, y: (cv.height - b.y1) / sc, w: (b.x1 - b.x0) / sc, h: Math.max(6, (b.y1 - b.y0) / sc), str: w.text });
+        });
+        pages.push({ lines: groupLines(items) });
+      }
+    } finally { try { await worker.terminate(); } catch (e) {} }
+    return pages;
+  }
+
+  // ---------- sale results: lot + sold price ----------
+  var MONEY_RE = /\$\s?(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d{2}))?/g;
+  var SKIP_PRICE = /start|opening|open bid|reserve|buy ?now|asking|increment|minimum|min\.? bid|next bid|premium|fee|shipping|deposit/i;
+  var SOLD_WORD = /sold|final|winning|won|hammer|high bid|selling price|sale price/i;
+  function parseResults(lines) {
+    var best = {}, order = [], cur = null;
+    function put(lot, tag, price, pr) {
+      if (!lot) return;
+      var o = best[lot];
+      if (!o) { o = best[lot] = { lot: lot, tag: "", price: null, pr: -1 }; order.push(lot); }
+      if (tag && !o.tag) o.tag = tag;
+      if (price != null && pr >= o.pr) { o.price = price; o.pr = pr; }
+    }
+    function money(s) {
+      var out = [], m; MONEY_RE.lastIndex = 0;
+      while ((m = MONEY_RE.exec(s))) { var n = parseFloat(m[1].replace(/,/g, "") + (m[2] ? "." + m[2] : "")); if (n >= 25) out.push(n); }
+      return out;
+    }
+    lines.forEach(function (raw) {
+      var s = raw.replace(/\u00a0/g, " ").trim(); if (!s) return;
+      var lm = /\blot\s*(?:#|no\.?|number)?\s*[:\-]?\s*([A-Za-z]?\d{1,4}[A-Za-z]?)\b/i.exec(s);
+      var row = !lm && /^#?\s*(\d{1,3}[A-Za-z]?)\b[^$]*\$/.exec(s);
+      var tm = /\b(\d{5,6})\b/.exec(s.replace(/\$\s?[\d,]+(\.\d{2})?/g, " "));
+      var ms = [], pr = 1;
+      (function () { // look at the words just before each amount: skip opening/reserve bids, prefer sold/final
+        var m, last = 0, best2 = null, first = null; MONEY_RE.lastIndex = 0;
+        while ((m = MONEY_RE.exec(s))) {
+          var seg = s.slice(last, m.index), v = parseFloat(m[1].replace(/,/g, "") + (m[2] ? "." + m[2] : "")); last = m.index + m[0].length;
+          if (v < 25 || (SKIP_PRICE.test(seg) && !SOLD_WORD.test(seg))) continue;
+          if (SOLD_WORD.test(seg)) { if (best2 == null) best2 = v; } else if (first == null) first = v;
+        }
+        if (best2 != null) { ms = [best2]; pr = 2; } else if (first != null) ms = [first];
+      })();
+      if (lm) { cur = lm[1]; put(cur, tm && tm[1], ms.length ? ms[0] : null, pr); return; }
+      if (row) { put(row[1], tm && tm[1], ms.length ? ms[0] : null, pr); return; }
+      // a tag line with no lot number (or a different tag than the current lot) starts its own entry
+      if (tm && (!cur || (best[cur] && best[cur].tag && best[cur].tag !== tm[1]))) { cur = "t:" + tm[1]; put(cur, tm[1], ms.length ? ms[0] : null, pr); return; }
+      if (cur && ms.length) put(cur, tm && tm[1], ms[0], pr);
+    });
+    return order.map(function (k) { return best[k]; }).filter(function (o) { return o.price != null; }).map(function (o) { return { lot: /^t:/.test(o.lot) ? "" : o.lot, tag: o.tag, price: String(o.price) }; });
   }
 
   // ---------- layout 1: blocks ----------
@@ -313,10 +390,21 @@
     return { lots: lots, extraKeys: keys };
   }
 
-  window.gscReadSalePdf = async function (file, prog) {
-    var t = await readText(file, prog), pages = t.pages, source = "text";
-    var chars = pages.reduce(function (a, p) { return a + p.lines.reduce(function (b, L) { return b + L.items.reduce(function (c, i) { return c + i.str.trim().length; }, 0); }, 0); }, 0);
-    if (chars < 40 * pages.length) { pages = await readScan(t.pdf, prog); source = "scan"; }
+  function isImage(f) { return /^image\//.test(f.type || "") || /\.(png|jpe?g|heic|heif|webp|gif|bmp)$/i.test(f.name || ""); }
+  window.gscReadSaleFiles = async function (files, prog) {
+    files = Array.prototype.slice.call(files || []);
+    var pages = [], source = "text", imgs = files.filter(isImage), pdfs = files.filter(function (f) { return !isImage(f); });
+    for (var i = 0; i < pdfs.length; i++) {
+      var t = await readText(pdfs[i], prog), pp = t.pages;
+      var chars = pp.reduce(function (a, p) { return a + p.lines.reduce(function (b, L) { return b + L.items.reduce(function (c, i) { return c + i.str.trim().length; }, 0); }, 0); }, 0);
+      if (chars < 40 * pp.length) { pp = await readScan(t.pdf, prog); source = "scan"; }
+      pages = pages.concat(pp);
+    }
+    if (imgs.length) { pages = pages.concat(await readImages(imgs, prog)); source = "scan"; }
+    return finish(pages, source);
+  };
+  window.gscReadSalePdf = function (file, prog) { return window.gscReadSaleFiles([file], prog); };
+  function finish(pages, source) {
     var all = []; pages.forEach(function (p) { p.lines.forEach(function (L) { all.push(lineText(L)); }); });
     var blocks = parseBlocks(all), tables = parseTables(pages);
     var raw = tables.length > blocks.length ? tables : blocks;
@@ -324,6 +412,7 @@
     out.source = source; out.pages = pages.length; out.layout = raw === tables ? "table" : "blocks";
     out.text = all.join("\n");
     out.eweList = parseEweList(pages);
+    out.results = parseResults(all);
     return out;
-  };
+  }
 })();
