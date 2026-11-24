@@ -1244,7 +1244,7 @@ var WL_SEED={"herd": {"herdSheep": [{"name": "18123", "farmTag": "18123", "nickn
 
 /* ===================== Wallen v15: one record book with breed sub-tabs, Bucks tab, one-time reload from the 11/23 spreadsheet ===================== */
 /* ---- one book: the breed section buttons are gone ---- */
-function wlSecs(){return[{id:"main",name:"Herd"}]}
+function wlSecs(){var l=gxGet(WL_SECK,null),m=Array.isArray(l)?l.filter(function(s){return s&&s.id==="main"})[0]:null;return[{id:"main",name:"Herd",hidden:(m&&m.hidden)||[]}]}
 function wlCat(part){return part===1?RSG_SIRES:CD_SIRES.concat(SD_SIRES)}
 function WlSecBar(){return gxE(gxF,null,gxE(WlExportPicker),gxE(WlSibPop))}
 GXK.bucks="sheepwrld:bucks";
@@ -1349,6 +1349,23 @@ function WlSibPop(){var sib=useGx("gx:sibpop",null);if(!sib)return null;var clos
     gxE("div",{className:"text-xs text-neutral-500 mb-3"},[me.year,me.sire?"Sire "+me.sire:"",me.dam?"Dam "+me.dam:""].filter(Boolean).join(" · ")+" — from the Lamb Roster"),
     grp("Same year ("+ofLitterName((sib.litL||[]).length+1)+")",sib.litL),grp("Full sibs, earlier years",sib.fullL),grp("Half sibs, earlier years (same dam, other sire)",sib.halfL),
     gxE("div",{className:"flex justify-end mt-2"},gxBtn("Open dam in Lambing Records",function(){close();wlGoEwe(sib.damKey)})))}
+
+/* ---- v20: Check for Repeats = same tag with a different sire or dam, inside the same tab ---- */
+function wlRepeats(){var recs=wlAllRecs(!1).filter(function(r){return gxNorm(r.tag)}),by={};
+  recs.forEach(function(r){var k=r.tab+"|"+gxNorm(r.tag);(by[k]=by[k]||[]).push(r)});
+  var conflict=[];Object.keys(by).forEach(function(k){var g=by[k];if(g.length<2)return;var diff=!1;
+    g.forEach(function(a){g.forEach(function(b){if(a===b)return;var s1=gxSireKey(a.sire),s2=gxSireKey(b.sire),d1=gxNorm(a.dam),d2=gxNorm(b.dam);if((s1&&s2&&!wlSameSire(a.sire,b.sire))||(d1&&d2&&d1!==d2))diff=!0})});
+    if(diff)conflict.push({tag:g[0].tag,tab:g[0].tab,recs:g})});
+  return{conflict:conflict.sort(function(a,b){return ofCmp(a.tab,b.tab)||ofCmp(a.tag,b.tag)})}}
+function gxSireKey(s){return wlSireKey(s)}
+function WlRepeatsCard(){var st=ge.useState(null),res=st[0],setRes=st[1];
+  var list=res?res.conflict:[];
+  return gxSection("Check for Repeats",gxE("div",null,gxNote("Finds the same tag entered twice in one tab with a different sire or dam — for example two lambs in the Lamb Roster both tagged 26050 but out of different ewes. Nothing is changed or deleted; tap a line to go fix it."),
+    gxE(tt,{onClick:function(){setRes(wlRepeats())}},res?"Check Again":"Check for Repeats"),
+    res?gxE("div",{className:"mt-4"},list.length===0?gxE("div",{className:"text-sm",style:{color:"#2E7D32",fontWeight:600}},"\u2713 No tags with mismatched sire or dam."):gxE("div",{className:"space-y-2"},list.map(function(g,gi){return gxE("div",{key:gi,className:"p-2",style:{background:$t,borderRadius:"10px"}},
+      gxE("div",{className:"text-sm mb-1",style:{color:Ge,fontWeight:700}},"Tag "+g.tag+" \u00b7 "+gxTabName("herd",g.tab,WL_TABN[g.tab]||g.tab)+" ("+g.recs.length+")"),
+      g.recs.map(function(r,i){return gxE("button",{key:i,type:"button",onClick:function(){wlOpen(r)},className:"w-full text-left text-xs py-1 px-2 mb-1 flex justify-between gap-2",style:{background:"#FFFFFF",border:"1px solid "+He,borderRadius:"8px",color:"#444"}},
+        gxE("span",null,wlWhere(r)),gxE("span",{style:{color:"#777"}},[r.sire&&"Sire "+r.sire,r.dam&&"Dam "+r.dam].filter(Boolean).join(" \u00b7 ")||"\u2014"))}))}))):null))}
 
 /* ===================== Wallen v19: Add Sale from a PDF, and Settings > Import Animals (pick where each one goes) ===================== */
 /* ---- inside the Add Sale box: fill Name + Date from the PDF; the lots preview opens after Save ---- */
