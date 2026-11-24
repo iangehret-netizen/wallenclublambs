@@ -113,7 +113,7 @@
         if (document.getElementById("wcl-update-banner")) return;
         // still on the Open screen: nothing entered yet, so just load the new version
         var cv = document.getElementById("gsc-cover");
-        if (cv && cv.style.display !== "none" && cv.className !== "gsc-hide") { location.reload(); return; }
+        if (cv && cv.style.display !== "none" && cv.className.indexOf("gsc-hide") < 0 && cv.offsetParent !== null) { location.reload(); return; }
         var b = document.createElement("button");
         b.id = "wcl-update-banner"; b.type = "button";
         b.textContent = "New version ready \u2014 tap to reload";
