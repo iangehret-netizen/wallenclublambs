@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "wallen-app-";
-const CACHE_NAME = CACHE_PREFIX + "v18";
+const CACHE_NAME = CACHE_PREFIX + "v19";
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",

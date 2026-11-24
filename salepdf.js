@@ -44,6 +44,7 @@
   function fieldFor(key) { return KEYMAP[nk(key)] || null; }
   function fixKey(key) {
     if (fieldFor(key)) return key;
+    if (/^(grand|great)/i.test(String(key).trim())) return key;
     var w = String(key).trim().split(/\s+/);
     for (var i = 1; i < w.length; i++) { var k = w.slice(i).join(" "); if (fieldFor(k)) return k; }
     return key;
@@ -67,6 +68,7 @@
   var MON = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12 };
   function normDate(v) {
     var s = String(v || "").trim(), m;
+    if ((m = /^(early|mid|middle|late|end of)[\s\-]+(?:of\s+)?([A-Za-z]{3,9})\.?$/i.exec(s))) { var mk2 = m[2].toLowerCase(), mo2 = MON[mk2.slice(0, 4)] || MON[mk2.slice(0, 3)]; if (mo2) { var dd = /^early/i.test(m[1]) ? "05" : /^mid/i.test(m[1]) ? "15" : "25"; return "0000-" + ("0" + mo2).slice(-2) + "-" + dd; } }
     // no year given: "11/06", "11-6", "Nov 6" -> 0000-11-06 (the app fills in the year)
     if ((m = /^(\d{1,2})[\/\-.](\d{1,2})$/.exec(s))) return "0000-" + ("0" + m[1]).slice(-2) + "-" + ("0" + m[2]).slice(-2);
     if ((m = /^([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?$/.exec(s))) { var mk = m[1].toLowerCase(), mo = MON[mk.slice(0, 4)] || MON[mk.slice(0, 3)]; if (mo) return "0000-" + ("0" + mo).slice(-2) + "-" + ("0" + m[2]).slice(-2); }
@@ -214,6 +216,21 @@
       if (cur && ms.length) put(cur, tm && tm[1], ms[0], pr);
     });
     return order.map(function (k) { return best[k]; }).filter(function (o) { return o.price != null; }).map(function (o) { return { lot: /^t:/.test(o.lot) ? "" : o.lot, tag: o.tag, price: String(o.price) }; });
+  }
+
+  // ---------- sale name + date from the top of page 1 ----------
+  function saleHead(pages) {
+    var p = pages[0]; if (!p) return null;
+    var lines = p.lines.map(lineText).map(function (x) { return x.replace(/\u00a0/g, " ").trim(); }).filter(Boolean), head = [], date = "";
+    for (var i = 0; i < lines.length && i < 12; i++) {
+      var s = lines[i];
+      if (LOT_RE.test(s) || /^(consignors?|sale terms|terms|lot details)\b/i.test(s)) break;
+      var dm = /\b(\d{1,2}\/\d{1,2}\/\d{4})\b/.exec(s);
+      if (dm) { if (!date) date = normDate(dm[1]); s = s.replace(dm[0], "").trim(); }
+      if (s && !/^(page \d|https?:)/i.test(s)) head.push(s);
+    }
+    var name = clean(head.join(" ").split("~")[0]).replace(/[\s\-\u2013\u2014,]+$/, "");
+    return name || date ? { name: name, date: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "" } : null;
   }
 
   // ---------- layout 1: blocks ----------
@@ -379,13 +396,22 @@
       });
       if (!o.tag && r.head) o.tag = r.head.split(/\s{2,}/)[0];
       ["tag", "sire", "damTag", "damSire", "sex", "breed"].forEach(function (f) { o[f] = clean(String(o[f] || "").replace(/(\s+[^\s]{1})+$/, "")); });
+      var rawDob = clean(o.dob || "");
       o.sex = normSex(o.sex); o.dob = o.dob ? normDate(o.dob) : "";
+      var note = [];
+      if (rawDob && /^(early|mid|middle|late|end of)/i.test(rawDob)) note.push("DOB: " + rawDob + " (approx.)");
+      if (o.damTag) {
+        var dm = /^([A-Za-z]{0,3}\d[\w\-\/]*)\b\s*(.*)$/.exec(o.damTag);
+        if (!dm) { note.push("Dam: " + o.damTag); o.damTag = ""; }
+        else if (dm[2]) { note.push("Dam: " + o.damTag); o.damTag = dm[1]; }
+      }
+      if (note.length) o.comments = o.comments ? o.comments + "\n" + note.join("\n") : note.join("\n");
       return o;
     });
     var keys = extraKeys.map(function (k) {
       var vals = lots.map(function (l) { return l.extra[k]; }).filter(function (v) { return v != null; });
       var same = vals.length > 1 && vals.every(function (v) { return v === vals[0]; });
-      return { key: k, use: isPriceKey(k) || same ? "ignore" : "comments", sample: vals[0] || "" };
+      return { key: k, use: isPriceKey(k) || same || /^(grand|great)/i.test(k) ? "ignore" : "comments", sample: vals[0] || "" };
     });
     return { lots: lots, extraKeys: keys };
   }
@@ -413,6 +439,7 @@
     out.text = all.join("\n");
     out.eweList = parseEweList(pages);
     out.results = parseResults(all);
+    out.sale = saleHead(pages);
     return out;
   }
 })();
